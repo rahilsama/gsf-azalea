@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 
 async function main() {
+    // --- Seed admin user ---
     const testEmail = 'admin@gsf.org';
     const testPassword = 'Admin@1234';
     const hashedPassword = await bcrypt.hash(testPassword, SALT_ROUNDS);

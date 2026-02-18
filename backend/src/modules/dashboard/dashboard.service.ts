@@ -58,6 +58,9 @@ export const getDashboardSummary = async () => {
         in: belowThreshold.map((b) => b.studentId),
       },
     },
+    include: {
+      school: true,
+    },
   });
 
   const studentsBelow50WithPercentage = studentsBelow50.map((student) => {

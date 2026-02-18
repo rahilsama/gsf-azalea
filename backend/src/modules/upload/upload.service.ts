@@ -2,29 +2,31 @@ import * as XLSX from 'xlsx';
 import { prisma } from '../../prisma/client';
 
 interface RawStudentRow {
-  full_name?: string;
-  date_of_birth?: string | number;
+  first_name?: string;
+  last_name?: string;
+  father_name?: string;
   grade?: string | number;
   school_name?: string;
-  guardian_name?: string;
-  contact_number?: string | number;
+  school_curriculum?: string;
+  school_location?: string;
+  parent_first_name?: string;
+  parent_last_name?: string;
+  parent_phone?: string | number;
   enrollment_date?: string | number;
   status?: string;
 }
 
 const requiredFields: (keyof RawStudentRow)[] = [
-  'full_name',
-  'date_of_birth',
+  'first_name',
+  'last_name',
+  'father_name',
   'grade',
   'school_name',
-  'guardian_name',
-  'contact_number',
-  'enrollment_date',
 ];
 
 const excelDateToJSDate = (value: string | number | undefined): Date => {
   if (value === undefined || value === null) {
-    throw new Error('Missing date value');
+    return new Date();
   }
   if (typeof value === 'number') {
     // Excel serial date
@@ -33,7 +35,7 @@ const excelDateToJSDate = (value: string | number | undefined): Date => {
   }
   const parsed = new Date(value);
   if (isNaN(parsed.getTime())) {
-    throw new Error(`Invalid date: ${value}`);
+    return new Date();
   }
   return parsed;
 };
@@ -58,47 +60,63 @@ export const importStudentsFromWorkbook = async (buffer: Buffer) => {
         row: i + 2, // +2 for header + 1-based index
         message: `Missing required fields: ${missing.join(', ')}`,
       });
-      // Skip this row
       // eslint-disable-next-line no-continue
       continue;
     }
 
     try {
-      const fullName = String(row.full_name).trim();
+      const firstName = String(row.first_name).trim();
+      const lastName = String(row.last_name).trim();
+      const fatherName = String(row.father_name).trim();
       const grade = String(row.grade).trim();
       const schoolName = String(row.school_name).trim();
-      const guardianName = String(row.guardian_name).trim();
-      const contactNumber = String(row.contact_number).trim();
       const status = (row.status || 'active').toString().toLowerCase() === 'inactive' ? 'inactive' : 'active';
-
-      const dateOfBirth = excelDateToJSDate(row.date_of_birth);
       const enrollmentDate = excelDateToJSDate(row.enrollment_date);
 
-      // Prevent duplicates based on fullName + dateOfBirth + guardianName
+      // Upsert school to avoid duplicates
+      const school = await prisma.school.upsert({
+        where: { name: schoolName },
+        update: {},
+        create: {
+          name: schoolName,
+          curriculum: row.school_curriculum?.toString().trim() || 'Unknown',
+          location: row.school_location?.toString().trim() || 'Unknown',
+        },
+      });
+
+      // Check for duplicate student
       const existing = await prisma.student.findFirst({
         where: {
-          fullName,
-          guardianName,
-          dateOfBirth,
+          firstName,
+          lastName,
+          fatherName,
+          schoolId: school.id,
         },
       });
 
       if (existing) {
-        // Skip duplicates silently; could collect a warning if desired
         // eslint-disable-next-line no-continue
         continue;
       }
 
       const student = await prisma.student.create({
         data: {
-          fullName,
-          dateOfBirth,
+          firstName,
+          lastName,
+          fatherName,
           grade,
-          schoolName,
-          guardianName,
-          contactNumber,
           enrollmentDate,
           status,
+          schoolId: school.id,
+          ...(row.parent_first_name && {
+            parents: {
+              create: {
+                firstName: row.parent_first_name.toString().trim(),
+                lastName: (row.parent_last_name || lastName).toString().trim(),
+                phone: row.parent_phone?.toString().trim(),
+              },
+            },
+          }),
         },
       });
 
@@ -117,4 +135,3 @@ export const importStudentsFromWorkbook = async (buffer: Buffer) => {
     errors,
   };
 };
-

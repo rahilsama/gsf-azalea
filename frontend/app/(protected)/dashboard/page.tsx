@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api";
 
@@ -16,10 +17,15 @@ const fetcher = async (url: string) => {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { data, error, isLoading } = useSWR(`${API_BASE}/dashboard/summary`, fetcher);
 
   if (isLoading) {
-    return <p>Loading dashboard...</p>;
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+      </div>
+    );
   }
 
   if (error) {
@@ -49,6 +55,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Quick action */}
+      <div className="flex gap-3">
+        <button
+          onClick={() => router.push("/students")}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 transition-colors"
+        >
+          Manage Students
+        </button>
+      </div>
+
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold">Students below 50% attendance</h2>
         {data.studentsBelow50.length === 0 ? (
@@ -67,9 +83,11 @@ export default function DashboardPage() {
               <tbody>
                 {data.studentsBelow50.map((item: any) => (
                   <tr key={item.student.id} className="border-b last:border-0">
-                    <td className="px-3 py-2">{item.student.fullName}</td>
+                    <td className="px-3 py-2">
+                      {item.student.firstName} {item.student.lastName}
+                    </td>
                     <td className="px-3 py-2">{item.student.grade}</td>
-                    <td className="px-3 py-2">{item.student.schoolName}</td>
+                    <td className="px-3 py-2">{item.student.school?.name || "—"}</td>
                     <td className="px-3 py-2 text-red-600">
                       {item.attendancePercentage.toFixed(1)}%
                     </td>
@@ -83,4 +101,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
