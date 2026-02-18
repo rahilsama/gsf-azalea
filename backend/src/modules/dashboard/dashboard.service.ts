@@ -7,22 +7,35 @@ export const getDashboardSummary = async () => {
     prisma.student.count({ where: { status: 'inactive' } }),
   ]);
 
-  const attendanceAggregates = await prisma.attendance.groupBy({
+  // Get total attendance records per student
+  const totalByStudent = await prisma.attendance.groupBy({
     by: ['studentId'],
     _count: { _all: true },
-    _sum: { present: true as any },
-  } as any);
+  });
+
+  // Get count of present records per student
+  const presentByStudent = await prisma.attendance.groupBy({
+    by: ['studentId'],
+    where: { present: true },
+    _count: { _all: true },
+  });
+
+  // Build a map of studentId -> present count for quick lookup
+  const presentMap = new Map<string, number>();
+  presentByStudent.forEach((p) => {
+    presentMap.set(p.studentId, p._count._all);
+  });
 
   let overallAttendancePercentage = 0;
   const belowThreshold: Array<{ studentId: string; attendancePercentage: number }> = [];
 
-  if (attendanceAggregates.length > 0) {
+  if (totalByStudent.length > 0) {
     let totalSessions = 0;
     let totalPresent = 0;
 
-    attendanceAggregates.forEach((agg: any) => {
+    totalByStudent.forEach((agg) => {
       const sessions = agg._count._all;
-      const presentCount = agg._sum.present ?? 0;
+      const presentCount = presentMap.get(agg.studentId) ?? 0;
       const percentage = sessions > 0 ? (presentCount / sessions) * 100 : 0;
 
       totalSessions += sessions;
