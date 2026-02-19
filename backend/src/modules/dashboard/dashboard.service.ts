@@ -1,82 +1,90 @@
 import { prisma } from '../../prisma/client';
 
 export const getDashboardSummary = async () => {
-  const [totalStudents, activeStudents, inactiveStudents] = await Promise.all([
-    prisma.student.count(),
-    prisma.student.count({ where: { status: 'active' } }),
-    prisma.student.count({ where: { status: 'inactive' } }),
-  ]);
+  // Total students
+  const totalStudents = await prisma.student.count();
+  const activeStudents = await prisma.student.count({ where: { status: 'active' } });
+  const inactiveStudents = totalStudents - activeStudents;
 
-  // Get total attendance records per student
-  const totalByStudent = await prisma.attendance.groupBy({
-    by: ['studentId'],
-    _count: { _all: true },
+  // Total schools
+  const totalSchools = await prisma.school.count();
+
+  // Total families
+  const totalFamilies = await prisma.family.count();
+
+  // Economic category breakdown
+  const economicBreakdown = await prisma.family.groupBy({
+    by: ['economicCategory'],
+    _count: { id: true },
   });
 
-  // Get count of present records per student
-  const presentByStudent = await prisma.attendance.groupBy({
-    by: ['studentId'],
-    where: { present: true },
-    _count: { _all: true },
+  // Students by academic year
+  const enrollmentsByYear = await prisma.enrollment.groupBy({
+    by: ['academicYear'],
+    _count: { id: true },
   });
 
-  // Build a map of studentId -> present count for quick lookup
-  const presentMap = new Map<string, number>();
-  presentByStudent.forEach((p) => {
-    presentMap.set(p.studentId, p._count._all);
+  // Total GSF contribution
+  const gsfTotals = await prisma.enrollment.aggregate({
+    _sum: {
+      gsfContribution: true,
+      parentContribution: true,
+      totalCost: true,
+    },
+    where: { academicYear: '2022-23' },
   });
 
-  let overallAttendancePercentage = 0;
-  const belowThreshold: Array<{ studentId: string; attendancePercentage: number }> = [];
-
-  if (totalByStudent.length > 0) {
-    let totalSessions = 0;
-    let totalPresent = 0;
-
-    totalByStudent.forEach((agg) => {
-      const sessions = agg._count._all;
-      const presentCount = presentMap.get(agg.studentId) ?? 0;
-      const percentage = sessions > 0 ? (presentCount / sessions) * 100 : 0;
-
-      totalSessions += sessions;
-      totalPresent += presentCount;
-
-      if (percentage < 50) {
-        belowThreshold.push({
-          studentId: agg.studentId,
-          attendancePercentage: percentage,
-        });
-      }
-    });
-
-    overallAttendancePercentage = totalSessions > 0 ? (totalPresent / totalSessions) * 100 : 0;
-  }
-
-  const studentsBelow50 = await prisma.student.findMany({
-    where: {
-      id: {
-        in: belowThreshold.map((b) => b.studentId),
+  // Top schools by enrollment count (2022-23)
+  const topSchools = await prisma.school.findMany({
+    include: {
+      _count: {
+        select: { enrollments: true },
       },
     },
-    include: {
-      school: true,
+    orderBy: {
+      enrollments: { _count: 'desc' },
     },
+    take: 10,
   });
 
-  const studentsBelow50WithPercentage = studentsBelow50.map((student) => {
-    const agg = belowThreshold.find((b) => b.studentId === student.id);
-    return {
-      student,
-      attendancePercentage: agg?.attendancePercentage ?? 0,
-    };
+  // Centres breakdown
+  const centreBreakdown = await prisma.centre.findMany({
+    include: {
+      _count: { select: { families: true } },
+    },
+    orderBy: { leb: 'asc' },
   });
 
   return {
     totalStudents,
     activeStudents,
     inactiveStudents,
-    overallAttendancePercentage,
-    studentsBelow50: studentsBelow50WithPercentage,
+    totalSchools,
+    totalFamilies,
+    economicBreakdown: economicBreakdown.map((e) => ({
+      category: e.economicCategory,
+      count: e._count.id,
+    })),
+    enrollmentsByYear: enrollmentsByYear.map((e) => ({
+      year: e.academicYear,
+      count: e._count.id,
+    })),
+    financials: {
+      totalCost: Number(gsfTotals._sum.totalCost || 0),
+      totalParentContribution: Number(gsfTotals._sum.parentContribution || 0),
+      totalGSFContribution: Number(gsfTotals._sum.gsfContribution || 0),
+    },
+    topSchools: topSchools.map((s) => ({
+      id: s.id,
+      name: s.name,
+      curriculum: s.curriculum,
+      enrollmentCount: s._count.enrollments,
+    })),
+    centreBreakdown: centreBreakdown.map((c) => ({
+      id: c.id,
+      leb: c.leb,
+      name: c.name,
+      familyCount: c._count.families,
+    })),
   };
 };
-

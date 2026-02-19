@@ -37,6 +37,10 @@ export const deleteStudentHandler = async (req: Request, res: Response, next: Ne
 export const getStudentByIdHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const student = await getStudentById(req.params.id);
+    if (!student) {
+      res.status(404).json({ message: 'Student not found' });
+      return;
+    }
     res.json(student);
   } catch (err) {
     next(err);
@@ -46,14 +50,14 @@ export const getStudentByIdHandler = async (req: Request, res: Response, next: N
 export const listStudentsHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = parseInt((req.query.page as string) || '1', 10);
-    const pageSize = parseInt((req.query.pageSize as string) || '10', 10);
+    const limit = parseInt((req.query.limit as string) || '20', 10);
     const search = (req.query.search as string) || undefined;
     const status = (req.query.status as string) || undefined;
+    const academicYear = (req.query.academicYear as string) || undefined;
 
-    const result = await listStudents({ page, pageSize, search, status });
+    const result = await listStudents({ page, limit, search, status, academicYear });
     res.json(result);
   } catch (err) {
     next(err);
   }
 };
-

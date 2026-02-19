@@ -1,6 +1,4 @@
-/// NOTE: This schema is written for Prisma 5 style datasources.
-/// When running with Prisma 7+ CLI (as in this environment), you must
-/// configure the datasource URL via prisma.config.{ts,js} instead.
+/// GSF Azalea — Prisma Schema (matches the normalized SQL tables)
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
@@ -17,6 +15,7 @@ enum Role {
   VOLUNTEER
 }
 
+// ── Auth ──
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -28,76 +27,137 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@map("User")
 }
 
-model School {
-  id         String   @id @default(uuid())
-  name       String   @unique
-  curriculum String
-  location   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+// ── Locations ──
+model Centre {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leb       String   @db.VarChar(100)
+  name      String   @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
 
+  families Family[]
+
+  @@unique([leb, name])
+  @@map("centres")
+}
+
+// ── Families ──
+model Family {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone             String?  @db.VarChar(100)
+  email             String?  @db.VarChar(200)
+  background        String?
+  economicCategory  String   @map("economic_category") @db.VarChar(10)
+  ufn               String?  @db.VarChar(20)
+  centreId          String?  @map("centre_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+
+  centre   Centre?   @relation(fields: [centreId], references: [id])
   students Student[]
 
-  @@index([name])
+  @@index([centreId])
+  @@index([economicCategory])
+  @@map("families")
 }
 
+// ── Schools ──
+model School {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String   @unique @db.VarChar(300)
+  curriculum String?  @db.VarChar(50)
+  medium     String?  @db.VarChar(50)
+  location   String?  @db.VarChar(200)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+
+  enrollments Enrollment[]
+
+  @@map("schools")
+}
+
+// ── Students ──
 model Student {
-  id             String        @id @default(uuid())
-  firstName      String
-  lastName       String
-  fatherName     String
-  grade          String
-  enrollmentDate DateTime      @default(now())
-  status         String        @default("active")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serialNumber Int?     @map("serial_number")
+  firstName    String   @map("first_name") @db.VarChar(100)
+  lastName     String   @map("last_name") @db.VarChar(100)
+  fatherName   String?  @map("father_name") @db.VarChar(100)
+  dob          DateTime? @db.Date
+  pid          String?  @db.VarChar(20)
+  familyId     String   @map("family_id") @db.Uuid
+  status       String   @default("active") @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
 
-  school         School        @relation(fields: [schoolId], references: [id])
-  schoolId       String
+  family      Family       @relation(fields: [familyId], references: [id])
+  enrollments Enrollment[]
+  processLog  ProcessLog?
 
-  parents        Parent[]
-  attendances    Attendance[]
-  performances   Performance[]
-
-  @@index([status])
+  @@index([familyId])
   @@index([firstName, lastName])
-  @@index([schoolId])
+  @@index([status])
+  @@map("students")
 }
 
-model Parent {
-  id        String   @id @default(uuid())
-  firstName String
-  lastName  String
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ── Enrollments ──
+model Enrollment {
+  id                  String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String  @map("student_id") @db.Uuid
+  schoolId            String? @map("school_id") @db.Uuid
+  academicYear        String  @map("academic_year") @db.VarChar(10)
+  standard            String? @db.VarChar(30)
 
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId String
+  annualFees          Decimal @default(0) @map("annual_fees")        @db.Decimal(12, 2)
+  admissionFee        Decimal @default(0) @map("admission_fee")      @db.Decimal(12, 2)
+  transportSchoolBus  Decimal @default(0) @map("transport_school_bus") @db.Decimal(12, 2)
+  transportByParents  Decimal @default(0) @map("transport_by_parents") @db.Decimal(12, 2)
+  tutorialCost        Decimal @default(0) @map("tutorial_cost")      @db.Decimal(12, 2)
+  uniformCost         Decimal @default(0) @map("uniform_cost")       @db.Decimal(12, 2)
+  textbooksCost       Decimal @default(0) @map("textbooks_cost")     @db.Decimal(12, 2)
+  otherActivitiesCost Decimal @default(0) @map("other_activities_cost") @db.Decimal(12, 2)
+  totalCost           Decimal @default(0) @map("total_cost")         @db.Decimal(12, 2)
+
+  parentContribution  Decimal @default(0) @map("parent_contribution") @db.Decimal(12, 2)
+  scholarshipSupport  Decimal @default(0) @map("scholarship_support") @db.Decimal(12, 2)
+  institutionalSupport Decimal @default(0) @map("institutional_support") @db.Decimal(12, 2)
+  revisedContribution Decimal @default(0) @map("revised_contribution") @db.Decimal(12, 2)
+  gsfContribution     Decimal @default(0) @map("gsf_contribution")   @db.Decimal(12, 2)
+
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  school  School? @relation(fields: [schoolId], references: [id])
+
+  @@unique([studentId, academicYear])
+  @@index([studentId])
+  @@index([schoolId])
+  @@index([academicYear])
+  @@map("enrollments")
+}
+
+// ── Process Logs ──
+model ProcessLog {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                String   @unique @map("student_id") @db.Uuid
+  remarksSWB               String?  @map("remarks_swb")
+  remarksGSF               String?  @map("remarks_gsf")
+  akebiCoordinatorRemarks  String?  @map("akebi_coordinator_remarks")
+  navrozPresidentRemarks   String?  @map("navroz_president_remarks")
+  remarksAKEBI             String?  @map("remarks_akebi")
+  admissionProcess         String?  @map("admission_process") @db.VarChar(100)
+  rcpRemarks               String?  @map("rcp_remarks")
+  akebCoordinatorRemarks   String?  @map("akeb_coordinator_remarks")
+  gsfComments              String?  @map("gsf_comments")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @default(now()) @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
-}
-
-model Attendance {
-  id        String   @id @default(uuid())
-  student   Student  @relation(fields: [studentId], references: [id])
-  studentId String
-  date      DateTime
-  present   Boolean
-
-  @@unique([studentId, date])
-  @@index([studentId, date])
-}
-
-model Performance {
-  id        String   @id @default(uuid())
-  student   Student  @relation(fields: [studentId], references: [id])
-  studentId String
-  subject   String
-  marks     Int
-  examDate  DateTime
-
-  @@index([studentId, examDate])
+  @@map("process_logs")
 }

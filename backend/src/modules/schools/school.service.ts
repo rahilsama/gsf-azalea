@@ -4,27 +4,25 @@ export const listSchools = async () => {
     return prisma.school.findMany({
         orderBy: { name: 'asc' },
         include: {
-            _count: {
-                select: { students: true },
-            },
+            _count: { select: { enrollments: true } },
         },
     });
 };
 
 export const getSchoolById = async (id: string) => {
-    const school = await prisma.school.findUnique({
+    return prisma.school.findUnique({
         where: { id },
         include: {
-            students: {
-                include: { parents: true },
-                orderBy: { firstName: 'asc' },
+            enrollments: {
+                include: {
+                    student: {
+                        include: {
+                            family: { include: { centre: true } },
+                        },
+                    },
+                },
+                orderBy: { academicYear: 'desc' },
             },
         },
     });
-    if (!school) {
-        const error = new Error('School not found') as Error & { statusCode?: number };
-        error.statusCode = 404;
-        throw error;
-    }
-    return school;
 };

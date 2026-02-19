@@ -1,51 +1,42 @@
 import { z } from 'zod';
 
-export const createStudentSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  fatherName: z.string().min(1, "Father's name is required"),
-  grade: z.string().min(1, 'Grade is required'),
-  enrollmentDate: z
-    .string()
-    .transform((val) => new Date(val))
-    .optional(),
-  status: z.enum(['active', 'inactive']).default('active'),
-
-  // School info — either provide an existing schoolId or full school details
-  schoolId: z.string().uuid().optional(),
-  schoolName: z.string().min(1).optional(),
-  schoolCurriculum: z.string().min(1).optional(),
-  schoolLocation: z.string().min(1).optional(),
-
-  // Parent info
-  parentFirstName: z.string().min(1).optional(),
-  parentLastName: z.string().min(1).optional(),
-  parentPhone: z.string().optional(),
-}).refine(
-  (data) => data.schoolId || data.schoolName,
-  { message: 'Either schoolId or schoolName must be provided', path: ['schoolName'] },
-);
-
-export const updateStudentSchema = z.object({
-  firstName: z.string().min(1).optional(),
-  lastName: z.string().min(1).optional(),
-  fatherName: z.string().min(1).optional(),
-  grade: z.string().min(1).optional(),
-  enrollmentDate: z
-    .string()
-    .transform((val) => new Date(val))
-    .optional(),
-  status: z.enum(['active', 'inactive']).optional(),
-
-  schoolId: z.string().uuid().optional(),
-  schoolName: z.string().min(1).optional(),
-  schoolCurriculum: z.string().min(1).optional(),
-  schoolLocation: z.string().min(1).optional(),
-
-  parentFirstName: z.string().min(1).optional(),
-  parentLastName: z.string().min(1).optional(),
-  parentPhone: z.string().optional(),
+export const ListStudentsQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().optional(),
+  status: z.string().optional(),
+  academicYear: z.string().optional(),
 });
 
-export type CreateStudentInput = z.infer<typeof createStudentSchema>;
-export type UpdateStudentInput = z.infer<typeof updateStudentSchema>;
+export type ListStudentsInput = z.infer<typeof ListStudentsQuery>;
+
+export const CreateStudentInput = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  fatherName: z.string().optional(),
+  dob: z.string().optional(),
+  pid: z.string().optional(),
+  status: z.string().default('active'),
+
+  // Family info
+  familyId: z.string().uuid().optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  background: z.string().optional(),
+  economicCategory: z.enum(['SWB', 'LIG', 'LMIG', 'EWS']).default('LIG'),
+
+  // Location
+  leb: z.string().optional(),
+  centreName: z.string().optional(),
+
+  // Enrollment
+  schoolId: z.string().uuid().optional(),
+  schoolName: z.string().optional(),
+  academicYear: z.string().default('2022-23'),
+  standard: z.string().optional(),
+});
+
+export type CreateStudentPayload = z.infer<typeof CreateStudentInput>;
+
+export const UpdateStudentInput = CreateStudentInput.partial();
+export type UpdateStudentPayload = z.infer<typeof UpdateStudentInput>;
