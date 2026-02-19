@@ -6,6 +6,8 @@ export const ListStudentsQuery = z.object({
   search: z.string().optional(),
   status: z.string().optional(),
   academicYear: z.string().optional(),
+  economicCategory: z.string().optional(),
+  schoolName: z.string().optional(),
 });
 
 export type ListStudentsInput = z.infer<typeof ListStudentsQuery>;

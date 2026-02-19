@@ -96,6 +96,7 @@ model Student {
   family      Family       @relation(fields: [familyId], references: [id])
   enrollments Enrollment[]
   processLog  ProcessLog?
+  deletedAt   DateTime? @map("deleted_at")
 
   @@index([familyId])
   @@index([firstName, lastName])

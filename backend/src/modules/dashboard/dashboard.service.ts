@@ -2,8 +2,8 @@ import { prisma } from '../../prisma/client';
 
 export const getDashboardSummary = async () => {
   // Total students
-  const totalStudents = await prisma.student.count();
-  const activeStudents = await prisma.student.count({ where: { status: 'active' } });
+  const totalStudents = await prisma.student.count({ where: { deletedAt: null } });
+  const activeStudents = await prisma.student.count({ where: { status: 'active', deletedAt: null } });
   const inactiveStudents = totalStudents - activeStudents;
 
   // Total schools
@@ -22,16 +22,22 @@ export const getDashboardSummary = async () => {
   const enrollmentsByYear = await prisma.enrollment.groupBy({
     by: ['academicYear'],
     _count: { id: true },
+    where: { student: { deletedAt: null } }, // Filter enrollments for non-deleted students
   });
 
-  // Total GSF contribution
+  // Financials (aggregating from enrollments)
+  // We'll fetch all current enrollments to sum up contributions
+  // Financials (aggregating from enrollments)
   const gsfTotals = await prisma.enrollment.aggregate({
     _sum: {
       gsfContribution: true,
       parentContribution: true,
       totalCost: true,
     },
-    where: { academicYear: '2022-23' },
+    where: {
+      academicYear: '2022-23',
+      student: { deletedAt: null }
+    },
   });
 
   // Top schools by enrollment count (2022-23)

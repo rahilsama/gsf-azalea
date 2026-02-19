@@ -85,7 +85,11 @@ export default function DashboardPage() {
                 LMIG: "bg-blue-500",
               };
               return (
-                <div key={item.category}>
+                <div
+                  key={item.category}
+                  onClick={() => router.push(`/students?economicCategory=${item.category}`)}
+                  className="cursor-pointer transition-opacity hover:opacity-80"
+                >
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="font-medium text-slate-700">{item.category}</span>
                     <span className="text-slate-500">{item.count} families ({pct.toFixed(0)}%)</span>
@@ -107,7 +111,11 @@ export default function DashboardPage() {
           <h2 className="mb-4 text-sm font-semibold text-slate-700">Schools by Enrollment</h2>
           <div className="space-y-2">
             {data.topSchools.map((school: any) => (
-              <div key={school.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+              <div
+                key={school.id}
+                onClick={() => router.push(`/students?schoolName=${encodeURIComponent(school.name)}`)}
+                className="flex cursor-pointer items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition-colors hover:bg-slate-100"
+              >
                 <div>
                   <p className="text-sm font-medium text-slate-700">{school.name}</p>
                   <p className="text-xs text-slate-400">{school.curriculum}</p>

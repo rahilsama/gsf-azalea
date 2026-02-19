@@ -54,8 +54,10 @@ export const listStudentsHandler = async (req: Request, res: Response, next: Nex
     const search = (req.query.search as string) || undefined;
     const status = (req.query.status as string) || undefined;
     const academicYear = (req.query.academicYear as string) || undefined;
+    const economicCategory = (req.query.economicCategory as string) || undefined;
+    const schoolName = (req.query.schoolName as string) || undefined;
 
-    const result = await listStudents({ page, limit, search, status, academicYear });
+    const result = await listStudents({ page, limit, search, status, academicYear, economicCategory, schoolName });
     res.json(result);
   } catch (err) {
     next(err);

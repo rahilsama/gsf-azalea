@@ -31,14 +31,33 @@ export const listStudents = async (query: ListStudentsInput) => {
       { firstName: { contains: search, mode: 'insensitive' } },
       { lastName: { contains: search, mode: 'insensitive' } },
       { fatherName: { contains: search, mode: 'insensitive' } },
-      { enrollments: { some: { school: { name: { contains: search, mode: 'insensitive' } } } } },
       { family: { phone: { contains: search, mode: 'insensitive' } } },
+      { enrollments: { some: { school: { name: { contains: search, mode: 'insensitive' } } } } },
     ];
   }
 
-  if (academicYear) {
-    where.enrollments = { some: { academicYear } };
+  // Filter by Economic Category
+  if (query.economicCategory) {
+    where.family = {
+      ...where.family,
+      economicCategory: query.economicCategory
+    };
   }
+
+  // Filter by School Name
+  if (query.schoolName) {
+    where.enrollments = {
+      some: {
+        academicYear: '2022-23', // Filter current enrollment primarily
+        school: {
+          name: query.schoolName
+        }
+      }
+    };
+  }
+
+  // Filter out soft-deleted students
+  where.deletedAt = null;
 
   const [students, total] = await Promise.all([
     prisma.student.findMany({
@@ -57,8 +76,8 @@ export const listStudents = async (query: ListStudentsInput) => {
 // ── Get by ID ──
 
 export const getStudentById = async (id: string) => {
-  return prisma.student.findUnique({
-    where: { id },
+  return prisma.student.findFirst({
+    where: { id, deletedAt: null },
     include: studentIncludes,
   });
 };
@@ -154,6 +173,9 @@ export const updateStudent = async (id: string, data: UpdateStudentPayload) => {
 // ── Delete ──
 
 export const deleteStudent = async (id: string) => {
-  // Enrollments and process_logs cascade automatically
-  return prisma.student.delete({ where: { id } });
+  // Soft delete: set deletedAt timestamp instead of removing record
+  return prisma.student.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
 };
