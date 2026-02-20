@@ -2,9 +2,10 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # GSF Azalea — EC2 First-Time Setup Script
 #
-# Run this on a fresh Ubuntu EC2 instance:
-#   chmod +x ec2-setup.sh
-#   ./ec2-setup.sh
+# Run this on a fresh Amazon Linux EC2 instance:
+#   1. Fill in deploy.env with your GitHub credentials
+#   2. chmod +x ec2-setup.sh
+#   3. ./ec2-setup.sh
 #
 # After running, configure your .env.production and start the app:
 #   cp .env.production.example .env.production
@@ -14,6 +15,15 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
+
+# ── Load deploy secrets ──────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/deploy.env" ]; then
+    source "$SCRIPT_DIR/deploy.env"
+else
+    echo "❌  deploy.env not found! Copy deploy.env to the same directory as this script."
+    exit 1
+fi
 
 echo "═══════════════════════════════════════════════════════"
 echo "  GSF Azalea — EC2 Setup Script"
@@ -52,14 +62,7 @@ fi
 
 # ── 4. Authenticate to GitHub Container Registry ─────────────────────────────
 echo ""
-echo "🔑  To pull private images from ghcr.io, you need a GitHub PAT."
-echo "   Create one at: https://github.com/settings/tokens"
-echo "   Required scope: read:packages"
-echo ""
-read -rp "   Enter your GitHub username: " GH_USER
-read -rsp "   Enter your GitHub PAT (classic token with read:packages): " GH_TOKEN
-echo ""
-
+echo "🔑  Logging into ghcr.io with credentials from deploy.env..."
 echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin
 echo "   ✅ Logged into ghcr.io."
 
