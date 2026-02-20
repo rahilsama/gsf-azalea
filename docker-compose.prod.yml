@@ -1,0 +1,89 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# GSF Azalea — Production Docker Compose
+#
+# Usage on EC2:
+#   1. Copy this file + .env.production to the server
+#   2. docker compose -f docker-compose.prod.yml pull
+#   3. docker compose -f docker-compose.prod.yml up -d
+#
+# First time?  The backend entrypoint runs prisma migrate deploy automatically.
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── PostgreSQL Database ──────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-student_tracking}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-student_tracking}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Backend (NestJS / Express + Prisma) ──────────────────────────────────
+  backend:
+    # ⬇ Replace with your actual GitHub org/user + repo name
+    image: ghcr.io/${GITHUB_REPOSITORY:-rahilsama/gsf-azalea}/backend:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-student_tracking}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "4000:4000"
+    # Run prisma migrate deploy before starting the app
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "⏳ Running database setup..."
+        if [ -d "prisma/migrations" ]; then
+          echo "📋 Found migrations directory, running prisma migrate deploy..."
+          npx prisma migrate deploy
+        else
+          echo "📋 No migrations found, running prisma db push..."
+          npx prisma db push
+        fi
+        echo "✅ Database ready. Starting server..."
+        node dist/server.js
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Frontend (Next.js) ──────────────────────────────────────────────────
+  frontend:
+    # ⬇ Replace with your actual GitHub org/user + repo name
+    image: ghcr.io/${GITHUB_REPOSITORY:-rahilsama/gsf-azalea}/frontend:latest
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000/api}
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:
+    driver: local
