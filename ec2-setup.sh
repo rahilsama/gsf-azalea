@@ -22,13 +22,15 @@ echo "════════════════════════�
 # ── 1. System updates ────────────────────────────────────────────────────────
 echo ""
 echo "📦  Updating system packages..."
-sudo apt-get update -y && sudo apt-get upgrade -y
+sudo yum update -y
 
 # ── 2. Install Docker ────────────────────────────────────────────────────────
 echo ""
 echo "🐳  Installing Docker..."
 if ! command -v docker &> /dev/null; then
-    curl -fsSL https://get.docker.com | sudo sh
+    sudo yum install -y docker
+    sudo systemctl enable docker
+    sudo systemctl start docker
     sudo usermod -aG docker "$USER"
     echo "   ✅ Docker installed. You may need to log out and back in for group changes."
 else
@@ -39,8 +41,11 @@ fi
 echo ""
 echo "🔧  Ensuring Docker Compose plugin is available..."
 if ! docker compose version &> /dev/null; then
-    sudo apt-get install -y docker-compose-plugin
-    echo "   ✅ Docker Compose plugin installed."
+    COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep tag_name | cut -d '"' -f 4)
+    sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+    sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+    echo "   ✅ Docker Compose ${COMPOSE_VERSION} installed."
 else
     echo "   ✅ Docker Compose already available."
 fi
