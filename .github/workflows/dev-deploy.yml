@@ -11,6 +11,7 @@ jobs:
 
             - name: Build and Restart Local Docker
               run: |
+                  cp .env.example .env
                   docker compose down
                   docker compose up -d --build
 
