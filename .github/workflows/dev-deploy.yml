@@ -1,0 +1,20 @@
+name: Local Dev Deploy
+on:
+    push:
+        branches: [dev]
+
+jobs:
+    deploy-local:
+        runs-on: self-hosted # This tells GitHub to run it on your machine
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Build and Restart Local Docker
+              run: |
+                  docker compose down
+                  docker compose up -d --build
+
+            - name: Health Check
+              run: |
+                  sleep 10
+                  curl -f http://localhost:3000/api/health || exit 1

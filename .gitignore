@@ -19,4 +19,5 @@ yarn-debug.log*
 yarn-error.log*
 
 # Prisma
-node_modules/.prisma
+node_modules/.prisma.env.production
+deploy.env
